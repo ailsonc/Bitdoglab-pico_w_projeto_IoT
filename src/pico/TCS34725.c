@@ -2,7 +2,7 @@
 #include "hardware/i2c.h"
 
 void tcs34725_init(void) {
-    // Inicializa I2C usando a definição do header (TCS_I2C)
+    // Inicializa I2C usando a definição do header
     i2c_init(TCS_I2C, 100 * 1000);
     
     gpio_set_function(TCS_SDA, GPIO_FUNC_I2C);
@@ -10,16 +10,22 @@ void tcs34725_init(void) {
     gpio_pull_up(TCS_SDA);
     gpio_pull_up(TCS_SCL);
 
-    // === Configurações Anti-Saturação ===
-    // Integração Rápida (2.4ms = 0xFF) - Modo "Óculos Escuros"
-    uint8_t cmd_time[2] = {0x80 | 0x01, 0xFF}; 
+    // === CONFIGURAÇÃO BALANCEADA ===
+    
+    // 1. Tempo de Integração: Aumentar para captar mais luz
+    // 0xFF = 2.4ms (Estava muito escuro)
+    // 0xF6 = 24ms  (Padrão ideal para começar)
+    // 0xD5 = 101ms (Lento, capta muita luz)
+    uint8_t cmd_time[2] = {0x80 | 0x01, 0xF6}; // Voltamos para 0xF6
     i2c_write_blocking(TCS_I2C, TCS_ADDR, cmd_time, 2, false);
 
-    // Ganho Mínimo (1x)
-    uint8_t cmd_gain[2] = {0x80 | 0x0F, 0x00}; 
+    // 2. Ganho: Manter em 1x ou subir para 4x
+    // 0x00 = 1x (Bom para LED ligado perto)
+    // 0x01 = 4x (Se continuar escuro, mude para este)
+    uint8_t cmd_gain[2] = {0x80 | 0x0F, 0x01}; // Vamos tentar 4x para garantir leitura
     i2c_write_blocking(TCS_I2C, TCS_ADDR, cmd_gain, 2, false);
 
-    // Liga o Sensor
+    // 3. Liga o Sensor
     uint8_t cmd_enable[2] = {0x80 | 0x00, 0x03}; 
     i2c_write_blocking(TCS_I2C, TCS_ADDR, cmd_enable, 2, false);
     

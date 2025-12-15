@@ -106,14 +106,26 @@ namespace scada.Controllers
 
         private readonly List<CorModel> _coresReferencia = new List<CorModel>
 {
-            // Preto: (166*255)/726, etc...
-            new CorModel("Preto",   (166f * 255f) / 726f,   (256f * 255f) / 726f,   (242f * 255f) / 726f),
-            // Branco: (2072*255)/7867...
-            new CorModel("Branco",  (2072f * 255f) / 7867f, (2765f * 255f) / 7867f, (2540f * 255f) / 7867f),
-            // Amarelo
-            new CorModel("Amarelo", (1505f * 255f) / 4163f, (1554f * 255f) / 4163f, (813f * 255f) / 4163f),
-            // Azul
-            new CorModel("Azul",    (295f * 255f) / 2341f,  (663f * 255f) / 2341f,  (1262f * 255f) / 2341f)
+            new CorModel("Preto", 58f, 90f, 85f),
+
+            // Branco (R=67, G=90, B=82)
+            new CorModel("Branco", 67f, 90f, 82f),
+
+            // Amarelo (R=92, G=95, B=50) -> Alto R e G, Baixo B
+            new CorModel("Amarelo", 92f, 95f, 50f),
+
+            // Azul (R=32, G=72, B=137) -> Baixo R, Médio G, Alto B
+            new CorModel("Azul", 32f, 72f, 137f),
+
+            // --- NOVAS CORES (Estimativas - Ajuste conforme necessário) ---
+
+            // Verde: Geralmente G é muito alto, R e B são baixos.
+            // Estimativa: R=40, G=120, B=50
+            new CorModel("Verde", 40f, 120f, 50f),
+
+            // Vermelho: Geralmente R é muito alto, G e B são baixos.
+            // Estimativa: R=130, G=50, B=50
+            new CorModel("Vermelho", 130f, 50f, 50f)
         };
 
         private void ProcessarDadosCor(string rawData)

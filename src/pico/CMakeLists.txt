@@ -54,7 +54,6 @@ pico_sdk_init()
 # Adicionar executável. O nome padrão é o nome do projeto, versão 0.1
 add_executable(main 
     main.c 
-    display.c
     VL53L0X.c
     TCS34725.c
     LED_RGB.c

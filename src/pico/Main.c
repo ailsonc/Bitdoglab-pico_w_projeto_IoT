@@ -11,7 +11,6 @@
 #include "inc/LED_RGB.h"
 #include "inc/VL53L0X.h"
 #include "inc/TCS34725.h"
-#include "inc/display.h"
 
 #define DISTANCIA_TRIGGER_MM 100 
 #define AMOSTRAS_PARA_VALIDAR 5
@@ -24,7 +23,7 @@ typedef struct {
 } SensorData_t;
 
 QueueHandle_t dataQueue;
-SemaphoreHandle_t xI2C1Mutex; 
+// REMOVIDO: SemaphoreHandle_t xI2C1Mutex;  <-- Não precisamos mais disso
 
 // --- Reset via Botão ---
 void gpio_callback(uint gpio, uint32_t events) {
@@ -41,14 +40,12 @@ void vSensorTask(void *pvParameters) {
     uint8_t contador_estabilidade = 0;
     bool aguardando_retirada = false; 
     
-    // ATENÇÃO: Verifique se vl53l0x usa i2c1 internamente nas suas libs
+    // Inicializa hardware
     vl53l0x_hardware_init();
     vl53l0x_sensor_init();
     
-    if (xSemaphoreTake(xI2C1Mutex, portMAX_DELAY) == pdTRUE) {
-        tcs34725_init(); // Vai configurar o I2C1
-        xSemaphoreGive(xI2C1Mutex);
-    }
+    // Inicializa Sensor de Cor (Sem Mutex)
+    tcs34725_init(); 
 
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = 50 / portTICK_PERIOD_MS; 
@@ -75,61 +72,38 @@ void vSensorTask(void *pvParameters) {
             data.objeto_detectado = true;
             data.distancia_mm = leitura_atual;
 
-            if (xSemaphoreTake(xI2C1Mutex, portMAX_DELAY) == pdTRUE) {
-                tcs34725_read_rgb(&data.r, &data.g, &data.b, &data.c);
-                xSemaphoreGive(xI2C1Mutex);
-            }
+            // Leitura direta (Sem Mutex, pois o display está desligado)
+            tcs34725_read_rgb(&data.r, &data.g, &data.b, &data.c);
+            
             xQueueSend(dataQueue, &data, 0);
         }
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 
-// --- Tarefa Processamento (Com a Normalização) ---
+// --- Tarefa Processamento ---
 void vProcessingTask(void *pvParameters) {
     SensorData_t rxData;
-    char lineBuffer[64];
 
     for (;;) {
         if (xQueueReceive(dataQueue, &rxData, portMAX_DELAY) == pdTRUE) {
             
             if (rxData.objeto_detectado) {
                 
-                // === O PULO DO GATO: Normalização ===
-                // Transforma valores brutos (0-65535) em proporção (0-255) baseada na luz total (c)
-                // Fórmula: (Cor * 255) / Clear
-                
-                uint8_t r_norm = 0, g_norm = 0, b_norm = 0;
+                // Liga Led Amarelo
+                led_set_color(255, 255, 0); 
 
-                if (rxData.c > 0) { // Proteção contra divisão por zero
-                    // Casting para float para manter precisão no cálculo, depois volta pra int
-                    r_norm = (uint8_t)((rxData.r * 255.0f) / rxData.c);
-                    g_norm = (uint8_t)((rxData.g * 255.0f) / rxData.c);
-                    b_norm = (uint8_t)((rxData.b * 255.0f) / rxData.c);
-                }
-
-                // Limita em 255 caso a matemática passe um pouco (raro, mas possível)
-                if (r_norm > 255) r_norm = 255;
-                if (g_norm > 255) g_norm = 255;
-                if (b_norm > 255) b_norm = 255;
-
-                // --- Fim da Lógica de Normalização ---
-
-                led_set_color(255, 255, 0); // Amarelo
-
-                if (xSemaphoreTake(xI2C1Mutex, portMAX_DELAY) == pdTRUE) {
-                    // Mostra no display os valores já tratados
-                    snprintf(lineBuffer, sizeof(lineBuffer), "R%d G%d B%d", r_norm, g_norm, b_norm);
-                    display_multiline(lineBuffer, "Validando...");
-                    xSemaphoreGive(xI2C1Mutex);
-                }
+                // Envia dados BRUTOS para o PC fazer a matemática
+                // Formato: DATA:R,G,B,C
                 printf("DATA:%d,%d,%d,%d\n", rxData.r, rxData.g, rxData.b, rxData.c);
 
-                // Aguarda resposta
+                // Aguarda resposta do C#
                 int ch_int = PICO_ERROR_TIMEOUT;
                 char comando = 0;
                 
-                while (true) {
+                // Timeout curto de leitura
+                int tries = 0;
+                while (tries < 50) { // Tenta por aprox 5 segundos (50 * 100ms)
                     ch_int = getchar_timeout_us(100000); 
                     if (ch_int != PICO_ERROR_TIMEOUT) {
                         char c = (char)ch_int;
@@ -138,25 +112,16 @@ void vProcessingTask(void *pvParameters) {
                             break; 
                         }
                     }
+                    tries++;
                 }
 
                 bool aprovado = (comando == 'A' || comando == 'a');
 
-                if (xSemaphoreTake(xI2C1Mutex, portMAX_DELAY) == pdTRUE) {
-                    if (aprovado) display_multiline("PC:", "APROVADO");
-                    else display_multiline("PC:", "REPROVADO");
-                    xSemaphoreGive(xI2C1Mutex);
-                }
-
-                if (aprovado) led_set_color(0, 255, 0); 
-                else led_set_color(255, 0, 0);          
+                if (aprovado) led_set_color(0, 255, 0); // Verde
+                else led_set_color(255, 0, 0);          // Vermelho
 
             } else {
                 led_set_color(0, 0, 0);
-                if (xSemaphoreTake(xI2C1Mutex, portMAX_DELAY) == pdTRUE) {
-                    display_multiline("Pronto...", "Aguardando");
-                    xSemaphoreGive(xI2C1Mutex);
-                }
                 printf("EVENT:CLEARED\n");
             }
         }
@@ -172,15 +137,12 @@ int main() {
     gpio_pull_up(BUTTON_A);
     gpio_set_irq_enabled_with_callback(BUTTON_A, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
 
-    xI2C1Mutex = xSemaphoreCreateMutex();
-    display_init(); 
     led_rgb_init();
-
-    display_multiline("Sistema", "I2C1 Normalizado");
 
     dataQueue = xQueueCreate(5, sizeof(SensorData_t));
 
-    if (dataQueue != NULL && xI2C1Mutex != NULL) {
+    // Verificação simplificada (Sem xI2C1Mutex)
+    if (dataQueue != NULL) {
         xTaskCreate(vSensorTask, "Sensor Task", 1024, NULL, 1, NULL);
         xTaskCreate(vProcessingTask, "Serial Task", 2048, NULL, 1, NULL);
         vTaskStartScheduler();
