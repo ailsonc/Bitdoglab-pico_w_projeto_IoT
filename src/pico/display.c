@@ -1,4 +1,4 @@
-#include "display.h"
+#include "inc/display.h"
 #include "hardware/i2c.h"
 #include "inc/ssd1306.h"
 #include <string.h>
@@ -13,7 +13,7 @@ static struct render_area frame_area = {
 
 // Inicialização do I2C e do display SSD1306
 void display_init(void) {
-    i2c_init(i2c1, SSD1306_I2C_CLOCK * 1000);
+    i2c_init(SSD1306_I2C, SSD1306_I2C_CLOCK * 1000);
     gpio_set_function(SSD1306_I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(SSD1306_I2C_SCL, GPIO_FUNC_I2C);
     gpio_pull_up(SSD1306_I2C_SDA);
@@ -47,14 +47,14 @@ void display_multiline(const char* line1, const char* line2) {
     // 2. Desenha a primeira linha (se ela não for nula)
     // Posição: X=5, Y=0 (topo)
     if (line1 != NULL) {
-        ssd1306_draw_string(ssd, 5, 0, line1);
+        ssd1306_draw_string(ssd, 5, 0, (char*)line1);
     }
 
     // 3. Desenha a segunda linha (se ela não for nula)
     // Posição: X=5, Y=12 (um pouco abaixo da primeira)
     // A altura da fonte padrão é 8 pixels, então 12 dá um bom espaçamento.
     if (line2 != NULL) {
-        ssd1306_draw_string(ssd, 5, 12, line2);
+        ssd1306_draw_string(ssd, 5, 12, (char*)line2);
     }
     
     render_on_display(ssd, &frame_area);

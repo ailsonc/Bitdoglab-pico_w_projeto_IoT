@@ -1,0 +1,10 @@
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.csproj.AssemblyReference.cache
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.FormMain.resources
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.Properties.Resources.resources
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.csproj.GenerateResource.cache
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.csproj.CoreCompileInputs.cache
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\scada.exe.config
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\scada.exe
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\scada.pdb
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.exe
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.pdb

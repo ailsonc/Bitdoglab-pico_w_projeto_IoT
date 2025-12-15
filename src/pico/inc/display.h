@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#define SSD1306_I2C i2c1
 #define SSD1306_I2C_SDA 14
 #define SSD1306_I2C_SCL 15
 #define SSD1306_I2C_CLOCK 400

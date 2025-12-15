@@ -5,8 +5,8 @@
 
 // Configuração I2C1 para o sensor de cor
 #define TCS_I2C i2c1
-#define TCS_SDA 14
-#define TCS_SCL 15
+#define TCS_SDA 2
+#define TCS_SCL 3
 #define TCS_ADDR 0x29
 
 void tcs34725_init(void);
