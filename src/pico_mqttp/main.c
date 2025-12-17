@@ -8,6 +8,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include "lwip/apps/mqtt.h"
 #include "lwip/dns.h"
@@ -19,9 +20,6 @@
 #include "inc/TCS34725.h"
 #include "inc/ENV.h"
 
-#define DISTANCIA_TRIGGER_MM 100
-#define AMOSTRAS_PARA_VALIDAR 5
-#define BUTTON_A 5
 /* ========================================== */
 
 typedef enum {
@@ -37,9 +35,27 @@ typedef struct {
 /* ===== GLOBAIS ===== */
 static mqtt_client_t *mqtt_client;
 static QueueHandle_t mqttQueue;
+static SemaphoreHandle_t xSemaphoreStartSensors;
 
 static ip_addr_t broker_ip;
 static bool dns_ok = false;
+
+/* =========================================================
+   FUNÇÕES AUXILIARES DE LED
+   ========================================================= */
+void led_red() { led_set_color(255, 0, 0); }
+void led_green() { led_set_color(0, 255, 0); }
+void led_yellow() { led_set_color(255, 255, 0); }
+void led_off() { led_set_color(0, 0, 0); }
+
+void blink_green_3_times() {
+    for (int i = 0; i < 3; i++) {
+        led_green();
+        vTaskDelay(pdMS_TO_TICKS(300));
+        led_off();
+        vTaskDelay(pdMS_TO_TICKS(300));
+    }
+}
 
 /* =========================================================
    RESET POR BOTÃO
@@ -54,9 +70,7 @@ void gpio_callback(uint gpio, uint32_t events) {
 /* =========================================================
    DNS CALLBACK
    ========================================================= */
-static void dns_callback(const char *name,
-                         const ip_addr_t *ipaddr,
-                         void *arg) {
+static void dns_callback(const char *name, const ip_addr_t *ipaddr, void *arg) {
     if (ipaddr != NULL) {
         broker_ip = *ipaddr;
         dns_ok = true;
@@ -64,48 +78,49 @@ static void dns_callback(const char *name,
 }
 
 /* =========================================================
-   MQTT RX CALLBACK
+   MQTT CALLBACKS
    ========================================================= */
-static void mqtt_incoming_data_cb(void *arg,
-                                  const u8_t *data,
-                                  u16_t len,
-                                  u8_t flags) {
-
+static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags) {
     MQTTResponse_t resp = MQTT_NONE;
+    char buf[32];
+    
+    // Proteção de buffer e cópia segura
+    if (len >= sizeof(buf)) len = sizeof(buf) - 1;
+    memcpy(buf, data, len);
+    buf[len] = '\0';
 
-    if (strncmp((char *)data, "APPROVED", len) == 0)
+    // Verifica palavras-chave
+    if (strstr(buf, "APPROVED") || strstr(buf, "APROVADO")) {
         resp = MQTT_APPROVED;
-    else if (strncmp((char *)data, "REJECTED", len) == 0)
+    } else if (strstr(buf, "REJECTED") || strstr(buf, "REPROVADO")) {
         resp = MQTT_REJECTED;
+    }
 
     if (resp != MQTT_NONE) {
+        // Envia para a fila (Não bloqueante dentro da ISR/Callback)
         xQueueSend(mqttQueue, &resp, 0);
     }
 }
 
-static void mqtt_incoming_publish_cb(void *arg,
-                                     const char *topic,
-                                     u32_t tot_len) {
-    (void)arg; (void)topic; (void)tot_len;
+static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len) {
+    // Callback necessária para a API do lwIP
 }
 
-static void mqtt_connection_cb(mqtt_client_t *client,
-                               void *arg,
-                               mqtt_connection_status_t status) {
-
+static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status) {
     if (status == MQTT_CONNECT_ACCEPTED) {
-        printf("MQTT conectado!\n");
+        printf("MQTT Conectado! (Passo 2: Verde)\n");
+        led_green(); // Passo 2: Verde
 
-        mqtt_set_inpub_callback(
-            client,
-            mqtt_incoming_publish_cb,
-            mqtt_incoming_data_cb,
-            NULL
-        );
-
+        mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, NULL);
         mqtt_sub_unsub(client, TOPIC_SUB, 0, NULL, NULL, 1);
+        
+        // Libera a MainTask
+        if (xSemaphoreStartSensors != NULL) {
+            xSemaphoreGive(xSemaphoreStartSensors);
+        }
     } else {
-        printf("Erro MQTT: %d\n", status);
+        printf("Erro MQTT: %d (Passo 2: Vermelho)\n", status);
+        led_red(); // Passo 2: Vermelho se falhar
     }
 }
 
@@ -113,24 +128,11 @@ static void mqtt_connection_cb(mqtt_client_t *client,
    ENVIO MQTT
    ========================================================= */
 void mqtt_send_color(SensorData_t *d) {
-
     char payload[80];
-
-    sprintf(payload,
-            "{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}",
-            d->r, d->g, d->b, d->c);
+    sprintf(payload, "{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}", d->r, d->g, d->b, d->c);
 
     cyw43_arch_lwip_begin();
-    mqtt_publish(
-        mqtt_client,
-        TOPIC_PUB,
-        payload,
-        strlen(payload),
-        0,
-        0,
-        NULL,
-        NULL
-    );
+    mqtt_publish(mqtt_client, TOPIC_PUB, payload, strlen(payload), 0, 0, NULL, NULL);
     cyw43_arch_lwip_end();
 }
 
@@ -138,204 +140,166 @@ void mqtt_send_color(SensorData_t *d) {
    TASK WIFI + MQTT
    ========================================================= */
 void vMQTTTask(void *pv) {
-
     (void)pv;
-
-    printf("Inicializando Wi-Fi...\n");
-
-    cyw43_arch_init();
-    cyw43_arch_enable_sta_mode();
-
-    cyw43_arch_wifi_connect_timeout_ms(
-        WIFI_SSID,
-        WIFI_PASS,
-        CYW43_AUTH_WPA2_MIXED_PSK,
-        60000
-    );
-
-    /* ===== DHCP ===== */
-    struct netif *netif = &cyw43_state.netif[CYW43_ITF_STA];
-
-    printf("Aguardando DHCP...\n");
-
-    for (int i = 0; i < 30; i++) {
-        if (!ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-            printf("IP obtido!\n");
-            printf("IP: %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
-            printf("GW: %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
-            printf("MASK: %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-
-    if (ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-        led_set_color(255, 0, 0);  // Vermelho
-        printf("DHCP falhou!\n");
+    
+    // Inicialização do Hardware WiFi
+    if (cyw43_arch_init()) {
+        printf("Falha init cyw43\n");
+        led_red();
         vTaskDelete(NULL);
     }
+    cyw43_arch_enable_sta_mode();
 
-    /* ===== DNS ===== */
-    printf("Resolvendo DNS: %s\n", MQTT_SERVER);
+    printf("Conectando WiFi...\n");
+    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASS, CYW43_AUTH_WPA2_MIXED_PSK, 30000)) {
+        printf("Falha WiFi (Passo 1: Vermelho)\n");
+        led_red(); // Passo 1: Falha
+        vTaskDelete(NULL);
+    } else {
+        printf("WiFi Conectado (Passo 1: Verde)\n");
+        led_green(); // Passo 1: Sucesso
+    }
 
+    // Delay visual para ver o verde do WiFi antes de tentar MQTT
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    led_off();
+
+    // Resolução DNS
     cyw43_arch_lwip_begin();
-    err_t err = dns_gethostbyname(
-        MQTT_SERVER,
-        &broker_ip,
-        dns_callback,
-        NULL
-    );
+    dns_gethostbyname(MQTT_SERVER, &broker_ip, dns_callback, NULL);
     cyw43_arch_lwip_end();
 
-    if (err == ERR_OK) {
-        dns_ok = true;
-        printf("DNS imediato OK\n");
-    }
+    while (!dns_ok) vTaskDelay(pdMS_TO_TICKS(100));
 
-    while (!dns_ok) {
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-
-    printf("DNS resolvido: %s\n", ipaddr_ntoa(&broker_ip));
-
-    led_set_color(0, 255, 0);   // Verde
-
-    /* ===== MQTT CONNECT ===== */
+    // Conexão MQTT
     mqtt_client = mqtt_client_new();
-
     struct mqtt_connect_client_info_t ci = {0};
-    ci.client_id = "pico_color";
+    ci.client_id = "pico_env_v1";
     ci.keep_alive = 60;
 
     cyw43_arch_lwip_begin();
-    mqtt_client_connect(
-        mqtt_client,
-        &broker_ip,
-        MQTT_PORT,
-        mqtt_connection_cb,
-        NULL,
-        &ci
-    );
+    // Usando BROKER_PORT corrigido
+    mqtt_client_connect(mqtt_client, &broker_ip, BROKER_PORT, mqtt_connection_cb, NULL, &ci);
     cyw43_arch_lwip_end();
 
-    led_set_color(0, 0, 0);
-
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+    // Loop infinito da tarefa
+    while (1) vTaskDelay(pdMS_TO_TICKS(1000));
 }
 
 /* =========================================================
-   TASK PRINCIPAL – SENSOR + PROCESSO
+   TASK PRINCIPAL (Lógica de Controle)
    ========================================================= */
 void vMainTask(void *pv) {
-
-    (void)pv;
-
     SensorData_t data;
     MQTTResponse_t resp;
+    int verificacoes = 0; // Contador de estabilidade
 
-    uint8_t estabilidade = 0;
-    bool objeto_presente = false;
-    bool resultado_exibido = false;
+    // Aguarda conexão MQTT (Sincronização via Semáforo)
+    xSemaphoreTake(xSemaphoreStartSensors, portMAX_DELAY);
+    
+    // Passo 3: Três piscadas verdes
+    printf("Sistema Pronto: Piscando Verde 3x\n");
+    blink_green_3_times();
 
+    // Inicializa sensores I2C
     vl53l0x_hardware_init();
     vl53l0x_sensor_init();
     tcs34725_init();
 
-    while (1) { 
+    while (1) {
+        printf("Aguardando objeto aproximar...\n");
+        led_off();
+        verificacoes = 0;
 
-        int distancia = vl53l0x_read_distance();
-
-        /* ================================
-           OBJETO PRESENTE
-           ================================ */
-        if (distancia > 0 && distancia < DISTANCIA_TRIGGER_MM) {
-
-            if (!objeto_presente && !resultado_exibido) {
-
-                if (++estabilidade >= AMOSTRAS_PARA_VALIDAR) {
-
-                    objeto_presente = true;
-                    estabilidade = 0;
-
-                    /* LED AMARELO */
-                    led_set_color(255, 255, 0);
-
-                    /* Leitura da cor */
-                    tcs34725_read_rgb(
-                        &data.r,
-                        &data.g,
-                        &data.b,
-                        &data.c
-                    );
-
-                    /* Envia MQTT */
-                    mqtt_send_color(&data);
-
-                    /* Aguarda resposta */
-                    if (xQueueReceive(
-                            mqttQueue,
-                            &resp,
-                            pdMS_TO_TICKS(60000))) {
-
-                        if (resp == MQTT_APPROVED) {
-                            led_set_color(0, 255, 0);   // Verde
-                        } else {
-                            led_set_color(255, 0, 0);  // Vermelho
-                        }
-
-                    } else {
-                        led_set_color(255, 0, 0);      // Timeout
-                    }
-
-                    resultado_exibido = true;
-                }
+        // 4. Aguardar aproximar COM FILTRO
+        // O loop só sai quando detectar o objeto 5 vezes SEGUIDAS (estabilidade)
+        while (verificacoes < 5) {
+            uint16_t distancia = vl53l0x_read_distance();
+            
+            if (distancia < DISTANCIA_TRIGGER_MM && distancia > 0) {
+                // Objeto detectado perto, incrementa confiança
+                verificacoes++;
+                printf("Detectando... %d/5 (Dist: %dmm)\n", verificacoes, distancia);
+            } else {
+                // Objeto longe ou leitura errada, zera a contagem
+                verificacoes = 0;
             }
-        }
-        /* ================================
-           OBJETO REMOVIDO → RESET DO CICLO
-           ================================ */
-        else {
-
-            estabilidade = 0;
-            objeto_presente = false;
-
-            if (resultado_exibido) {
-                /* Só aqui o sistema reseta */
-                resultado_exibido = false;
-                led_set_color(0, 0, 0); // LED apagado
-            }
+            vTaskDelay(pdMS_TO_TICKS(100)); // Verifica a cada 100ms
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        // Se saiu do loop acima, é porque o objeto está confirmado e estável!
+        printf("Objeto Confirmado! Lendo cor...\n");
+
+        // Objeto detectado -> Amarelo
+        led_yellow();
+        vTaskDelay(pdMS_TO_TICKS(500)); // Estabilização para leitura de cor
+
+        // Leitura e Envio
+        tcs34725_read_rgb(&data.r, &data.g, &data.b, &data.c);
+        printf("Enviando Cor: R:%d G:%d B:%d\n", data.r, data.g, data.b);
+        mqtt_send_color(&data);
+
+        // 5. Aguarda resposta por 1 minuto (60000ms)
+        printf("Aguardando resposta (1 min)...\n");
+        
+        // Limpa a fila antes de esperar nova resposta
+        xQueueReset(mqttQueue);
+
+        if (xQueueReceive(mqttQueue, &resp, pdMS_TO_TICKS(60000))) {
+            // 6. Chegou Resposta
+            if (resp == MQTT_APPROVED) {
+                printf("APROVADO -> Verde\n");
+                led_green();
+            } else {
+                printf("REPROVADO -> Vermelho\n");
+                led_red();
+            }
+        } else {
+            // 5. Timeout -> Vermelho
+            printf("TIMEOUT -> Vermelho\n");
+            led_red();
+        }
+
+        // 6. Ficar aceso até detectar remoção
+        printf("Remova o objeto para reiniciar...\n");
+        vTaskDelay(pdMS_TO_TICKS(2000)); // Garante que o usuário veja a cor antes de apagar
+
+        // Enquanto objeto estiver perto (< Trigger), mantém o loop travado aqui
+        // Também usa um pequeno filtro para não sair por erro de leitura
+        while (vl53l0x_read_distance() < (DISTANCIA_TRIGGER_MM + 20)) { 
+            // +20mm de histerese para evitar ficar piscando se estiver na borda
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+        // 7. Começar tudo de novo
+        printf("Objeto removido. Reiniciando ciclo.\n");
+        led_off();
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
-
 }
 
 /* =========================================================
    MAIN
    ========================================================= */
 int main(void) {
-
     stdio_init_all();
 
+    // Botão de Reset
     gpio_init(BUTTON_A);
     gpio_set_dir(BUTTON_A, GPIO_IN);
     gpio_pull_up(BUTTON_A);
-    gpio_set_irq_enabled_with_callback(
-        BUTTON_A,
-        GPIO_IRQ_EDGE_FALL,
-        true,
-        &gpio_callback
-    );
+    gpio_set_irq_enabled_with_callback(BUTTON_A, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
 
+    // Inicializa LEDs
     led_rgb_init();
 
-    mqttQueue = xQueueCreate(3, sizeof(MQTTResponse_t));
+    // Criação FreeRTOS
+    mqttQueue = xQueueCreate(1, sizeof(MQTTResponse_t));
+    xSemaphoreStartSensors = xSemaphoreCreateBinary();
 
-    xTaskCreate(vMQTTTask, "MQTT", 4096, NULL, 2, NULL);
-    xTaskCreate(vMainTask, "MAIN", 4096, NULL, 1, NULL);
+    // Cria as tasks
+    xTaskCreate(vMQTTTask, "MQTT_Task", 4096, NULL, 2, NULL);
+    xTaskCreate(vMainTask, "Main_Logic", 4096, NULL, 1, NULL);
 
     vTaskStartScheduler();
 
