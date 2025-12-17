@@ -2,7 +2,7 @@
 #define _LWIPOPTS_H
 
 // ---- FreeRTOS + lwIP ----
-#define NO_SYS                          0
+#define NO_SYS                         0
 #define LWIP_SOCKET                    0
 #define LWIP_NETCONN                   0
 
@@ -21,7 +21,7 @@
 #define MEM_SIZE                       8192
 #define PBUF_POOL_SIZE                 24
 #define MEMP_NUM_TCP_SEG               64
-#define MEMP_NUM_SYS_TIMEOUT           16
+#define MEMP_NUM_SYS_TIMEOUT           24
 
 // ---- PROTOCOLOS ----
 #define LWIP_ARP                       1

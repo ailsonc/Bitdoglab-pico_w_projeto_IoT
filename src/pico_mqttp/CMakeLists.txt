@@ -18,6 +18,9 @@ pico_sdk_init()
 
 add_executable(main
     main.c
+    VL53L0X.c
+    TCS34725.c
+    LED_RGB.c
     ${PICO_SDK_PATH}/lib/lwip/src/apps/mqtt/mqtt.c
 )
 
