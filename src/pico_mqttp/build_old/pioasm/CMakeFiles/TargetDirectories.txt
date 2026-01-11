@@ -1,0 +1,7 @@
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm/CMakeFiles/pioasm.dir
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm/CMakeFiles/edit_cache.dir
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm/CMakeFiles/rebuild_cache.dir
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm/CMakeFiles/list_install_components.dir
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm/CMakeFiles/install.dir
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm/CMakeFiles/install/local.dir
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm/CMakeFiles/install/strip.dir

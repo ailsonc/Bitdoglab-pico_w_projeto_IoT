@@ -8,8 +8,8 @@
 #define MQTT_SERVER "broker.hivemq.com"
 #define BROKER_PORT 1883
 
-#define TOPIC_PUB   "bitdoglab/send"
-#define TOPIC_SUB   "bitdoglab/recv"
+#define TOPIC_PUB   "pico/projetoIOT/color_data"
+#define TOPIC_SUB   "pico/projetoIOT/response"
 
 #define DISTANCIA_TRIGGER_MM 100 
 #define BUTTON_A 5

@@ -1,0 +1,5 @@
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm-install/pioasm/pioasm.exe
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm-install/pioasm/pioasmTargets.cmake
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm-install/pioasm/pioasmTargets-release.cmake
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm-install/pioasm/pioasmConfig.cmake
+C:/desenv_pico/pico_w_projeto_IoT/src/pico_mqttp/build/pioasm-install/pioasm/pioasmConfigVersion.cmake

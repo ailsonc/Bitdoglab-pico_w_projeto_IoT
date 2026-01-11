@@ -1,43 +1,29 @@
-﻿using scada.Controllers;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
+﻿using System;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using scada.Controllers;
 
 namespace scada
 {
     public partial class FormMain : Form
     {
-        private SerialController _serialController;
+        private MqttController _mqttController;
         public FormMain()
         {
             InitializeComponent();
 
-            _serialController = new SerialController();
+            _mqttController = new MqttController();
 
             // Inscreve nos eventos da classe
-            _serialController.OnLogReceived += AtualizarLog;
-            _serialController.OnConnectionChanged += AtualizarStatusConexao;
-            _serialController.OnValidationComplete += MostrarResultadoValidacao;
+            _mqttController.OnLogReceived += AtualizarLog;
+            _mqttController.OnConnectionChanged += AtualizarStatusConexao;
+            _mqttController.OnValidationComplete += MostrarResultadoValidacao;
         }
 
         private void FormMain_Load(object sender, EventArgs e)
         {
-            cmbPortas.DataSource = _serialController.GetAvailablePorts();
-        }
-
-        private void btnConectar_Click(object sender, EventArgs e)
-        {
-            string porta = cmbPortas.SelectedItem?.ToString();
-            if (!string.IsNullOrEmpty(porta))
-            {
-                _serialController.Connect(porta);
-            }
+            AtualizarLog("Iniciando conexão automática...");
+            _mqttController.Connect();
         }
 
         // --- MÉTODOS DE CALLBACK (Vêm de outra Thread) ---
@@ -78,21 +64,17 @@ namespace scada
                 Invoke(new Action(() => AtualizarStatusConexao(conectado)));
                 return;
             }
-
-            btnConectar.Enabled = !conectado;
-            btnDesconectar.Enabled = conectado;
-            cmbPortas.Enabled = !conectado;
         }
 
         private void btnDesconectar_Click(object sender, EventArgs e)
         {
-            _serialController.Disconnect();
+            _mqttController.Disconnect();
         }
 
         // Boa prática: Fechar porta ao fechar janela
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            _serialController.Dispose();
+            _mqttController.Dispose();
         }
     }
 }
