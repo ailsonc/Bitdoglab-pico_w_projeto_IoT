@@ -52,6 +52,7 @@ namespace scada.Controllers
                 if (parts.Length > 0)
                 {
                     string id = parts[0];
+
                     if (line.ToLower().Contains("unauthorized"))
                     {
                         return "ERRO: Autorize o PC na tela do celular!";

@@ -52,24 +52,27 @@ namespace scada
                 AtualizarLog("Aguardando...");
                 lblStatus.Text = "AGUARDANDO...";
                 pnlResultado.BackColor = Color.LightGray;
+                lblValores.Text = $"R:{rLido} G:{gLido} B:{bLido}";
                 return;
             }
 
-            // 2. Validação da Cor
-            double dist = Math.Sqrt(Math.Pow(rLido - rRef, 2) + Math.Pow(gLido - gRef, 2) + Math.Pow(bLido - bRef, 2));
-            if (dist >= 30) 
-            { 
-                Finalizar(false, "Cor Inválida"); 
-                return; 
-            }
-
-            // 3. Captura de Serial (Só se a cor passar)
+            // 2. Captura de Serial (Só se a cor passar)
             AtualizarLog("Cor OK. Capturando Serial...");
             string serial = await _adbController.GetSerialNumber();
             if (serial.Contains("ERRO") || serial.Contains("NENHUM")) 
             { 
-                Finalizar(false, $"Serial: {serial}"); 
+                Finalizar(false, $"Serial: {serial}");   
+                await _apiService.SalvarValidacao(modelo, serial, false);
                 return; 
+            }
+
+            // 3. Validação da Cor
+            double dist = Math.Sqrt(Math.Pow(rLido - rRef, 2) + Math.Pow(gLido - gRef, 2) + Math.Pow(bLido - bRef, 2));
+            if (dist >= 30)
+            {
+                Finalizar(false, "Cor Inválida");
+                await _apiService.SalvarValidacao(modelo, serial, false);
+                return;
             }
 
             // 4. Salvar no MySQL via API
