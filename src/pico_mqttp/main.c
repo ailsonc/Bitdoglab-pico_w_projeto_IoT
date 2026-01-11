@@ -137,6 +137,17 @@ void mqtt_send_color(SensorData_t *d) {
 }
 
 /* =========================================================
+   ENVIO MQTT CLEAR (REMOÇÃO)
+   ========================================================= */
+void mqtt_send_clear() {
+    char *payload = "{\"r\":0,\"g\":0,\"b\":0,\"c\":0}";
+
+    cyw43_arch_lwip_begin();
+    mqtt_publish(mqtt_client, TOPIC_PUB, payload, strlen(payload), 0, 0, NULL, NULL);
+    cyw43_arch_lwip_end();
+    printf("MQTT: Status Clear enviado (Objeto Removido)\n");
+}
+/* =========================================================
    TASK WIFI + MQTT
    ========================================================= */
 void vMQTTTask(void *pv) {
@@ -271,6 +282,8 @@ void vMainTask(void *pv) {
             vTaskDelay(pdMS_TO_TICKS(200));
         }
 
+        mqtt_send_clear();
+        
         // 7. Começar tudo de novo
         printf("Objeto removido. Reiniciando ciclo.\n");
         led_off();

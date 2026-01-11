@@ -34,8 +34,12 @@
             this.lblValores = new System.Windows.Forms.Label();
             this.grpMonitoramento = new System.Windows.Forms.GroupBox();
             this.label2 = new System.Windows.Forms.Label();
+            this.grpModelo = new System.Windows.Forms.GroupBox();
+            this.lblCorAlvo = new System.Windows.Forms.Label();
+            this.lblModelo = new System.Windows.Forms.Label();
             this.pnlResultado.SuspendLayout();
             this.grpMonitoramento.SuspendLayout();
+            this.grpModelo.SuspendLayout();
             this.SuspendLayout();
             // 
             // txtLog
@@ -88,9 +92,9 @@
             this.grpMonitoramento.Controls.Add(this.pnlResultado);
             this.grpMonitoramento.Controls.Add(this.lblValores);
             this.grpMonitoramento.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.grpMonitoramento.Location = new System.Drawing.Point(12, 12);
+            this.grpMonitoramento.Location = new System.Drawing.Point(12, 135);
             this.grpMonitoramento.Name = "grpMonitoramento";
-            this.grpMonitoramento.Size = new System.Drawing.Size(460, 426);
+            this.grpMonitoramento.Size = new System.Drawing.Size(460, 303);
             this.grpMonitoramento.TabIndex = 1;
             this.grpMonitoramento.TabStop = false;
             this.grpMonitoramento.Text = "Validação de Cor";
@@ -105,11 +109,42 @@
             this.label2.TabIndex = 4;
             this.label2.Text = "Log do Sistema:";
             // 
+            // grpModelo
+            // 
+            this.grpModelo.Controls.Add(this.lblCorAlvo);
+            this.grpModelo.Controls.Add(this.lblModelo);
+            this.grpModelo.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.grpModelo.Location = new System.Drawing.Point(12, 12);
+            this.grpModelo.Name = "grpModelo";
+            this.grpModelo.Size = new System.Drawing.Size(460, 117);
+            this.grpModelo.TabIndex = 2;
+            this.grpModelo.TabStop = false;
+            this.grpModelo.Text = "Configuração";
+            // 
+            // lblCorAlvo
+            // 
+            this.lblCorAlvo.Font = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblCorAlvo.Location = new System.Drawing.Point(16, 69);
+            this.lblCorAlvo.Name = "lblCorAlvo";
+            this.lblCorAlvo.Size = new System.Drawing.Size(420, 30);
+            this.lblCorAlvo.TabIndex = 2;
+            this.lblCorAlvo.Text = "Cor Alvo: ---";
+            // 
+            // lblModelo
+            // 
+            this.lblModelo.Font = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblModelo.Location = new System.Drawing.Point(16, 36);
+            this.lblModelo.Name = "lblModelo";
+            this.lblModelo.Size = new System.Drawing.Size(420, 30);
+            this.lblModelo.TabIndex = 1;
+            this.lblModelo.Text = "Modelo: ---";
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
+            this.Controls.Add(this.grpModelo);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.txtLog);
             this.Controls.Add(this.grpMonitoramento);
@@ -120,6 +155,7 @@
             this.Load += new System.EventHandler(this.FormMain_Load);
             this.pnlResultado.ResumeLayout(false);
             this.grpMonitoramento.ResumeLayout(false);
+            this.grpModelo.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -132,5 +168,8 @@
         private System.Windows.Forms.Label lblValores;
         private System.Windows.Forms.GroupBox grpMonitoramento;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.GroupBox grpModelo;
+        private System.Windows.Forms.Label lblModelo;
+        private System.Windows.Forms.Label lblCorAlvo;
     }
 }

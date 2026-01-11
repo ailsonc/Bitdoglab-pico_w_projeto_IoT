@@ -13,3 +13,6 @@ C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\Newtonsoft.Json.dll
 C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\M2Mqtt.Net.pdb
 C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\Newtonsoft.Json.xml
 C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\obj\Debug\scada.csproj.CopyComplete
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\Resources\ADB\adb.exe
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\Resources\ADB\AdbWinApi.dll
+C:\desenv_pico\pico_w_projeto_IoT\src\scada\scada\bin\Debug\Resources\ADB\AdbWinUsbApi.dll
